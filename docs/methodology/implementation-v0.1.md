@@ -42,3 +42,18 @@ Elapsed time includes the configuration's search and certification work. Wall-cl
 - Exchange is one-way in this staged implementation.
 - The adaptive policy is deliberately simple.
 - The prototype's results cannot establish a general speedup or a complexity-class result.
+
+
+## Durable benchmark execution (runner revision)
+
+The benchmark runner persists one JSONL result record after each configuration and calls fsync before refreshing derived outputs. The CSV and manifest are rewritten atomically from the checkpoint. The JSONL file is the source of truth for recovery.
+
+- A run writes OUTPUT.csv, OUTPUT.manifest.json, OUTPUT.checkpoint.jsonl, and OUTPUT.log.
+- The --resume option requires the same protocol, source commit, dirty-tree flag, sizes, instance count, configurations, and budgets. Every checkpoint row is revalidated against its deterministic seed and formula SHA-256 before reuse.
+- Duplicate, unexpected, uncertified, or formula-mismatched checkpoint rows are rejected.
+- The manifest distinguishes running from complete, records expected/completed result rows, exact invocation history, UTC timestamps, source revision, environment, and confirmatory eligibility.
+- A full-shaped run from a dirty working tree is explicitly non-confirmatory. A complete run is not automatically evidence of a performance improvement.
+
+Example recovery invocation (all original options must be retained):
+
+    python -m are.benchmark --git-commit COMMIT_SHA --output results/ARE-BENCH-001.csv --resume
