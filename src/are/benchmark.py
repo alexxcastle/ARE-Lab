@@ -125,13 +125,20 @@ def run_configuration(name: str, original, n_vars: int, total_budget: int = TOTA
 
 
 
-def _git_metadata() -> dict:
+def _git_metadata(exclude_paths: list[Path] | None = None) -> dict:
     try:
         head = subprocess.run(
             ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
         ).stdout.strip()
+        status_command = ["git", "status", "--porcelain", "--untracked-files=all", "--", "."]
+        for path in exclude_paths or []:
+            try:
+                relative = path.resolve().relative_to(Path.cwd().resolve())
+            except ValueError:
+                continue
+            status_command.append(f":(exclude){relative.as_posix()}")
         dirty = bool(subprocess.run(
-            ["git", "status", "--porcelain"], capture_output=True, text=True, check=True
+            status_command, capture_output=True, text=True, check=True
         ).stdout.strip())
         return {"git_head_detected": head, "git_dirty_detected": dirty}
     except (OSError, subprocess.CalledProcessError):
@@ -245,7 +252,7 @@ def main() -> None:
         (n, i, config)
         for n in sizes for i in range(args.limit_per_size) for config in configs
     ]
-    git_info = _git_metadata()
+    git_info = _git_metadata([args.output, manifest_path, checkpoint_path, log_path])
     if git_info["git_head_detected"] is not None and git_info["git_head_detected"] != args.git_commit:
         parser.error("--git-commit does not match the current Git HEAD")
     detected_dirty = git_info["git_dirty_detected"]
