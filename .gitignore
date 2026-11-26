@@ -14,3 +14,4 @@ results/*.manifest.json
 results/*.checkpoint.jsonl
 results/*.log
 results/*.tmp
+.DS_Store
