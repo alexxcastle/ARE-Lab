@@ -1,6 +1,6 @@
 # ARE-BENCH-002 — Mandatory second-engine benchmark
 
-Status: **new protocol; implementation committed; local tests pending**
+Status: **implementation committed; local test suite reported 16 passed on 2026-11-26; full confirmatory run pending**
 Protocol version: 1.0
 Supersedes ARE-BENCH-001 only for the new execution schedule; ARE-BENCH-001 remains an immutable historical baseline.
 
