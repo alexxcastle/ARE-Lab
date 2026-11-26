@@ -32,4 +32,4 @@ Initial repository bootstrap. Previous conversational benchmark numbers are **wi
 
 ## Reproduce
 
-The benchmark implementation is being added. Once available, commands and pinned dependencies will be documented here. Do not infer results from design documents alone.
+The deterministic instance generator is implemented. Install the package and run the tests:\n\n\`\`\`bash\npython -m pip install -e '.[test]'\npytest\npython -m are.cli --n-vars 50 --index 0\n\`\`\`\n\nThe generator reports a stable SHA-256 for each formula. The solver configurations and proof-checked result pipeline are still pending. Do not infer solver performance from instance-generation tests.
