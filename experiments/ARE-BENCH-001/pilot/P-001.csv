@@ -1,0 +1,9 @@
+n_vars,instance_index,seed,formula_sha256,configuration,status,certified,decision_nodes,propagations,conflicts,learned_generated,learned_received,learned_relevant,learned_certificates_verified,deferred_activated,max_active_clauses,elapsed_seconds,certificate_verifier_nodes,note
+100,0,20361126,8cabef618a437cf54d048bffbb78e7d37e36dd9fc41ce48d5fd9eb8692a1b8cc,A,UNKNOWN,False,2000,23613,997,1988,0,0,0,0,427,1.082076,0,single frequency engine
+100,0,20361126,8cabef618a437cf54d048bffbb78e7d37e36dd9fc41ce48d5fd9eb8692a1b8cc,B,UNSAT,True,1851,23138,925,1847,0,0,996,0,427,7.489903,2615,two-stage frequency -> jw; exchange=B
+100,0,20361126,8cabef618a437cf54d048bffbb78e7d37e36dd9fc41ce48d5fd9eb8692a1b8cc,C,UNSAT,True,1617,19985,808,1613,996,2,996,0,1423,7.280757,2615,two-stage frequency -> jw; exchange=C
+100,0,20361126,8cabef618a437cf54d048bffbb78e7d37e36dd9fc41ce48d5fd9eb8692a1b8cc,D,UNSAT,True,1617,19985,808,1613,249,2,996,0,676,7.927919,2615,two-stage frequency -> jw; exchange=D
+150,0,20411126,c36d852d75f9e2b765b3cdea9e42f13dbf0501c4f0d6aed8ad7dedcbbca1c93a,A,UNKNOWN,False,2000,28520,995,1984,0,0,0,0,640,1.589168,0,single frequency engine
+150,0,20411126,c36d852d75f9e2b765b3cdea9e42f13dbf0501c4f0d6aed8ad7dedcbbca1c93a,B,UNKNOWN,False,2000,28559,993,1974,0,0,983,0,640,7.183789,0,two-stage frequency -> jw; exchange=B
+150,0,20411126,c36d852d75f9e2b765b3cdea9e42f13dbf0501c4f0d6aed8ad7dedcbbca1c93a,C,UNKNOWN,False,2000,28757,992,1968,983,2,983,0,1623,8.435058,0,two-stage frequency -> jw; exchange=C
+150,0,20411126,c36d852d75f9e2b765b3cdea9e42f13dbf0501c4f0d6aed8ad7dedcbbca1c93a,D,UNKNOWN,False,2000,28700,992,1970,245,7,983,4,889,8.094696,0,two-stage frequency -> jw; exchange=D
