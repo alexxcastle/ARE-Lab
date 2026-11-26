@@ -1,4 +1,4 @@
-"""Run the frozen ARE-BENCH-001 configurations A/B/C/D."""
+"""Run ARE-BENCH-002 with unconditional second-engine execution for B/C/D."""
 from __future__ import annotations
 import argparse
 import csv
@@ -72,8 +72,9 @@ def run_configuration(name: str, original, n_vars: int, total_budget: int = TOTA
             original, n_vars, "frequency", total_budget)
         certified = _certify_engine_result(original, status, model, proof)
         stats = _merge_stats(engine.stats)
-        result = _result(name, status if certified else "UNKNOWN", certified, model,
-                         stats, time.perf_counter() - config_started, 0, 0,
+        result = _result(name, status if certified else "UNKNOWN", certified,
+                         model if certified else None, stats,
+                         time.perf_counter() - config_started, 0, 0,
                          "single frequency engine")
         result.update({
             "first_engine_status": status,
@@ -376,6 +377,15 @@ def main() -> None:
                 parser.error(f"Checkpoint has invalid status for {key}")
             if bool(row.get("certified")) != (row.get("status") in {"SAT", "UNSAT"}):
                 parser.error(f"Checkpoint certification/status mismatch for {key}")
+            if key[2] in {"B", "C", "D"}:
+                if row.get("second_engine_ran") is not True:
+                    parser.error(f"Checkpoint row did not execute the second engine: {key}")
+                if row.get("first_engine_status") not in {"SAT", "UNSAT", "UNKNOWN"}:
+                    parser.error(f"Checkpoint has invalid first-engine status for {key}")
+                if row.get("second_engine_status") not in {"SAT", "UNSAT", "UNKNOWN"}:
+                    parser.error(f"Checkpoint has invalid second-engine status for {key}")
+            elif row.get("second_engine_ran") is not False:
+                parser.error(f"Single-engine configuration unexpectedly ran a second engine: {key}")
             seen.add(key)
         completed = seen
         manifest["resumed_at_utc"] = _utc_now()
