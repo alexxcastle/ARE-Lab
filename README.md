@@ -28,8 +28,28 @@ The fixed benchmark is Random 3-SAT at density alpha = 4.267, with 50, 100, and 
 
 ## Status
 
-Initial repository bootstrap. Previous conversational benchmark numbers are **withdrawn as unverified** and are not part of the evidence base. The first valid results will be produced by the committed benchmark implementation and stored with their exact software revision.
+The deterministic instance generator and first proof-aware DPLL prototype are implemented. Install and test:
 
-## Reproduce
+```bash
+python -m pip install -e '.[test]'
+pytest
+python -m are.cli --n-vars 50 --index 0
+```
 
-The deterministic instance generator is implemented. Install the package and run the tests:\n\n\`\`\`bash\npython -m pip install -e '.[test]'\npytest\npython -m are.cli --n-vars 50 --index 0\n\`\`\`\n\nThe generator reports a stable SHA-256 for each formula. The solver configurations and proof-checked result pipeline are still pending. Do not infer solver performance from instance-generation tests.
+Run a small **pilot** (not the confirmatory benchmark):
+
+```bash
+python -m are.benchmark --sizes 50 --limit-per-size 1 --node-budget 2000 --output results/pilot.csv
+```
+
+Run the frozen benchmark only with the default 100,000-node budget, all three sizes, and 30 instances per size:
+
+```bash
+python -m are.benchmark --git-commit <COMMIT_SHA> --output results/ARE-BENCH-001.csv
+```
+
+The runner records per-instance CSV data and a JSON manifest. The first implementation is sequential two-stage DPLL; see `docs/methodology/implementation-v0.1.md`. It is not yet a full CDCL solver or a concurrent bidirectional implementation.
+
+## Evidence status
+
+Previous conversational benchmark numbers are **withdrawn as unverified** and are not part of the evidence base. The first valid pilot data and subsequent confirmatory results must be committed with their exact software revision.
