@@ -72,3 +72,14 @@ H1: Under an equal aggregate decision-node budget, adaptive clause exchange (D) 
 H0 / null outcome: D does not improve on C, or any apparent benefit disappears under paired reproducible evaluation.
 
 No result so far establishes a general SAT speedup, a polynomial-time algorithm, or anything about P vs NP.
+
+
+## 2026-11-26 — Durable and resumable benchmark runner
+
+- Added an append-only JSONL checkpoint written and fsynced after each configuration result.
+- CSV and manifest are regenerated atomically from the checkpoint, so an interrupted run can be resumed without rerunning completed configurations.
+- Resume checks the frozen run settings and validates every completed row against the deterministic seed and formula SHA-256. Duplicate or unexpected rows are rejected.
+- Added manifest run states, UTC timestamps, exact command history, source commit and dirty-tree marker, environment, expected/completed row counts, and confirmatory eligibility.
+- Added a durable progress log and regression test covering a pilot run followed by a no-duplicate resume.
+- This is an implementation change only; the ARE-BENCH-001 instance generator, seed schedule, configurations, and decision-node budgets remain unchanged.
+- The new tests have been added to the repository but have **not yet been executed in this environment**. No confirmatory benchmark has been run.
