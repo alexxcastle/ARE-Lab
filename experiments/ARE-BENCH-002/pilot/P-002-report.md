@@ -61,3 +61,15 @@ This is a 15-formula exploratory subset, not the confirmatory 90-formula experim
 ## Next step
 
 Retain this run unchanged as P-002. After checking out the exact current source revision, running the full test suite, and confirming a clean working tree, execute the frozen 90-formula ARE-BENCH-002 confirmatory run at 100,000 aggregate decision nodes per formula/configuration. Preserve P-002 rows in the eventual full dataset but do not treat overlapping pilot/full rows as independent observations.
+
+
+## Archived artifact encoding
+
+The four machine-readable run artifacts (CSV, manifest, progress log, and JSONL checkpoint) are stored alongside this report as gzip-compressed Base64 text files. This keeps the repository artifacts text-only while preserving the exact uploaded bytes. Restore any artifact on macOS/Linux with:
+
+```sh
+base64 -d P-002.csv.gz.b64 | gzip -dc > P-002.csv
+base64 -d P-002.manifest.json.gz.b64 | gzip -dc > P-002.manifest.json
+base64 -d P-002.log.gz.b64 | gzip -dc > P-002.log
+base64 -d P-002.checkpoint.jsonl.gz.b64 | gzip -dc > P-002.checkpoint.jsonl
+```
