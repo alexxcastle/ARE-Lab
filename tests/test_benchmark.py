@@ -33,7 +33,7 @@ def test_runner_checkpoints_and_resumes_without_duplicate_rows(tmp_path, monkeyp
         }
 
     monkeypatch.setattr(benchmark, "run_configuration", fake_run_configuration)
-    monkeypatch.setattr(benchmark, "_git_metadata", lambda: {
+    monkeypatch.setattr(benchmark, "_git_metadata", lambda *_: {
         "git_head_detected": "test-commit", "git_dirty_detected": False
     })
     output = tmp_path / "pilot.csv"
