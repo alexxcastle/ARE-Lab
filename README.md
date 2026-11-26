@@ -42,7 +42,7 @@ Run a small **pilot** (not the confirmatory benchmark):
 python -m are.benchmark --sizes 50 --limit-per-size 1 --node-budget 2000 --output results/pilot.csv
 ```
 
-Run the frozen benchmark only with the default 100,000-node budget, all three sizes, and 30 instances per size. Supply the exact source commit and mark a dirty working tree explicitly:
+Run the frozen benchmark only with the default 100,000-node budget, all three sizes, and 30 instances per size. Supply the exact source commit. The runner verifies it against the current Git HEAD and automatically detects tracked/untracked working-tree changes (the explicit --git-dirty flag is an additional conservative override):
 
 ```bash
 python -m are.benchmark --git-commit <COMMIT_SHA> --output results/ARE-BENCH-001.csv
