@@ -16,7 +16,7 @@ The formula generator, density, sizes, and deterministic seeds are unchanged:
 
 - Random 3-SAT at density 4.267.
 - Variable counts: 50, 100, and 150.
-- 30 formulas per size; 90 unique formulas total.
+- 30 formulas per size; 90 formula instances total.
 - For each size n and index i in 0..29: seed = 20261126 + 1000*n + i.
 - Clause count: round(4.267*n); three distinct variables per clause; independent random polarity; clauses sampled with replacement.
 - Formula identity is recorded using SHA-256.
