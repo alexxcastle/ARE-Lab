@@ -451,9 +451,16 @@ def main() -> None:
         }
         manifest["elapsed_seconds_this_session"] = round(time.perf_counter() - started, 3)
         _write_manifest(manifest_path, manifest)
+        engine_trace = (
+            f" first={result['first_engine_status']}:{result['first_engine_nodes']}"
+            f" second={result['second_engine_status']}:{result['second_engine_nodes']}"
+            if result["second_engine_ran"] else
+            f" first={result['first_engine_status']}:{result['first_engine_nodes']} second=NOT_RUN"
+        )
         log_line = (
             f"{_utc_now()} n={n} i={i:02d} {config}: {result['status']} "
-            f"nodes={result['decision_nodes']} ({len(rows)}/{len(expected)})\n"
+            f"nodes={result['decision_nodes']}{engine_trace} "
+            f"({len(rows)}/{len(expected)})\n"
         )
         with log_path.open("a", encoding="utf-8") as log_stream:
             log_stream.write(log_line)
