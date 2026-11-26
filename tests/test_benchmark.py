@@ -42,7 +42,18 @@ def test_runner_checkpoints_and_resumes_without_duplicate_rows(tmp_path, monkeyp
             "learned_certificates_verified": 0, "deferred_activated": 0,
             "max_active_clauses": len(cnf), "elapsed_seconds": 0.001,
             "certificate_verifier_nodes": 0, "note": "test stub",
+            "first_engine_status": "SAT",
+            "first_engine_certified": True,
+            "first_engine_nodes": 1,
+            "first_engine_elapsed_seconds": 0.001,
             "second_engine_ran": False,
+            "second_engine_status": "NOT_RUN",
+            "second_engine_certified": False,
+            "second_engine_nodes": 0,
+            "second_engine_elapsed_seconds": 0.0,
+            "engine_disagreement": False,
+            "learned_received_immediate": 0,
+            "learned_received_deferred": 0,
         }
 
     monkeypatch.setattr(benchmark, "run_configuration", fake_run_configuration)
