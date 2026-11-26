@@ -1,0 +1,19 @@
+{
+  "protocol": "ARE-BENCH-001",
+  "protocol_version": "1.0",
+  "run_type": "exploratory pilot; not confirmatory",
+  "git_commit": "8483543691aca2d8fc490c1639620d1a14e26ab2",
+  "python_version": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "sizes": [100, 150],
+  "instance_indices": [0],
+  "seeds": [20361126, 20411126],
+  "configs": ["A", "B", "C", "D"],
+  "total_node_budget_per_instance": 2000,
+  "per_engine_budget": 1000,
+  "certificate_budget_separate": 2000000,
+  "adaptive_immediate_fraction": 0.25,
+  "elapsed_seconds": 49.104,
+  "raw_results_file": "P-001.csv",
+  "interpretation": "Pilot only. Two formulas, one per size. Not sufficient for statistical conclusions."
+}
