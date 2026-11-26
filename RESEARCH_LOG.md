@@ -83,3 +83,5 @@ No result so far establishes a general SAT speedup, a polynomial-time algorithm,
 - Added a durable progress log and regression test covering a pilot run followed by a no-duplicate resume.
 - This is an implementation change only; the ARE-BENCH-001 instance generator, seed schedule, configurations, and decision-node budgets remain unchanged.
 - The new tests have been added to the repository but have **not yet been executed in this environment**. No confirmatory benchmark has been run.
+
+- Follow-up hardening: the runner verifies the supplied commit against Git HEAD, detects dirty source trees automatically (excluding its own output artifacts), records each resume invocation, and safely discards only an unterminated final JSONL append after interruption.
