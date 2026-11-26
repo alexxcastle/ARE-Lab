@@ -86,6 +86,8 @@ def run_configuration(name: str, original, n_vars: int, total_budget: int = TOTA
             "second_engine_nodes": 0,
             "second_engine_elapsed_seconds": 0.0,
             "engine_disagreement": False,
+            "learned_received_immediate": 0,
+            "learned_received_deferred": 0,
         })
         return result
 
@@ -107,11 +109,13 @@ def run_configuration(name: str, original, n_vars: int, total_budget: int = TOTA
 
     if name == "B":
         receiving_kb, deferred, adaptive = KnowledgeBase(), [], False
+        immediate_count, deferred_count = 0, 0
     elif name == "C":
         receiving_kb = KnowledgeBase()
         for clause in verified:
             receiving_kb.add(clause, shared.certificates[clause])
         deferred, adaptive = [], False
+        immediate_count, deferred_count = len(verified), 0
     else:  # D
         ranked = sorted(verified, key=lambda clause: (len(clause), clause))
         immediate_n = int(len(ranked) * ADAPTIVE_IMMEDIATE_FRACTION)
@@ -120,6 +124,7 @@ def run_configuration(name: str, original, n_vars: int, total_budget: int = TOTA
         for clause in immediate:
             receiving_kb.add(clause, shared.certificates[clause])
         adaptive = True
+        immediate_count, deferred_count = len(immediate), len(deferred)
 
     # Stage 2 is unconditional: JW runs even if stage 1 already solved the CNF.
     second, s2, m2, p2, second_elapsed = _run_engine(
@@ -141,7 +146,7 @@ def run_configuration(name: str, original, n_vars: int, total_budget: int = TOTA
 
     stats = _merge_stats(first.stats, second.stats)
     stats["learned_generated"] = first.stats.learned_generated + second.stats.learned_generated
-    stats["learned_received"] = second.stats.learned_received
+    stats["learned_received"] = immediate_count + deferred_count
     stats["learned_certificates_verified"] = len(verified)
 
     disagreement = first_ok and second_ok and s1 != s2
@@ -176,6 +181,8 @@ def run_configuration(name: str, original, n_vars: int, total_budget: int = TOTA
         "second_engine_nodes": second.stats.nodes,
         "second_engine_elapsed_seconds": round(second_elapsed, 6),
         "engine_disagreement": disagreement,
+        "learned_received_immediate": immediate_count,
+        "learned_received_deferred": deferred_count,
     })
     return result
 
@@ -306,7 +313,8 @@ def main() -> None:
               "elapsed_seconds", "certificate_verifier_nodes", "first_engine_status", "first_engine_certified",
               "first_engine_nodes", "first_engine_elapsed_seconds", "second_engine_ran",
               "second_engine_status", "second_engine_certified", "second_engine_nodes",
-              "second_engine_elapsed_seconds", "engine_disagreement", "note"]
+              "second_engine_elapsed_seconds", "engine_disagreement",
+              "learned_received_immediate", "learned_received_deferred", "note"]
     sizes = list(args.sizes)
     expected = [
         (n, i, config)
