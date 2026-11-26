@@ -48,79 +48,136 @@ def _result(name, status, certified, model, stats, elapsed, verifier_nodes, expo
     }
 
 
+def _certify_engine_result(original, status, model, proof) -> bool:
+    if status == "SAT":
+        return model is not None and verify_sat(original, model)
+    if status == "UNSAT":
+        return verify_unsat_tree(original, proof)
+    return False
+
+
 def run_configuration(name: str, original, n_vars: int, total_budget: int = TOTAL_BUDGET) -> dict:
+    """Run one benchmark configuration.
+
+    For B/C/D the second (JW) engine is always started after the first engine
+    terminates, whether the first engine returns SAT, UNSAT, or UNKNOWN. Each
+    engine receives at most half of the aggregate search-node budget.
+    """
     config_started = time.perf_counter()
     engine_budget = total_budget // 2
     certificate_budget = max(CERTIFICATE_BUDGET, total_budget * 20)
 
     if name == "A":
-        engine, status, model, proof, _ = _run_engine(original, n_vars, "frequency", total_budget)
+        engine, status, model, proof, engine_elapsed = _run_engine(
+            original, n_vars, "frequency", total_budget)
+        certified = _certify_engine_result(original, status, model, proof)
         stats = _merge_stats(engine.stats)
-        certified = (model is not None and verify_sat(original, model)) if status == "SAT" else (
-            verify_unsat_tree(original, proof) if status == "UNSAT" else False)
-        return _result(name, status if certified else "UNKNOWN", certified, model, stats,
-                       time.perf_counter() - config_started, 0, 0, "single frequency engine")
+        result = _result(name, status if certified else "UNKNOWN", certified, model,
+                         stats, time.perf_counter() - config_started, 0, 0,
+                         "single frequency engine")
+        result.update({
+            "first_engine_status": status,
+            "first_engine_certified": certified,
+            "first_engine_nodes": engine.stats.nodes,
+            "first_engine_elapsed_seconds": round(engine_elapsed, 6),
+            "second_engine_ran": False,
+            "second_engine_status": "NOT_RUN",
+            "second_engine_certified": False,
+            "second_engine_nodes": 0,
+            "second_engine_elapsed_seconds": 0.0,
+            "engine_disagreement": False,
+        })
+        return result
 
-    # Deterministic two-stage schedule: frequency first, Jeroslow-Wang second.
+    if name not in {"B", "C", "D"}:
+        raise ValueError(f"Unknown configuration: {name}")
+
+    # Stage 1: frequency heuristic. Keep its learned clauses even if it solves.
     shared = KnowledgeBase()
-    first, s1, m1, p1, _ = _run_engine(original, n_vars, "frequency", engine_budget, knowledge=shared)
-    if s1 == "SAT":
-        ok = m1 is not None and verify_sat(original, m1)
-        return _result(name, "SAT" if ok else "UNKNOWN", ok, m1, _merge_stats(first.stats),
-                       time.perf_counter() - config_started, 0, 0, "first engine solved")
-    if s1 == "UNSAT":
-        ok = verify_unsat_tree(original, p1)
-        return _result(name, "UNSAT" if ok else "UNKNOWN", ok, None, _merge_stats(first.stats),
-                       time.perf_counter() - config_started, 0, 0, "first engine refutation")
+    first, s1, m1, p1, first_elapsed = _run_engine(
+        original, n_vars, "frequency", engine_budget, knowledge=shared)
+    first_ok = _certify_engine_result(original, s1, m1, p1)
 
-    # A clause is exportable only if its certificate proves original AND
-    # negation(clause) UNSAT. No heuristic score can bypass this check.
-    verified = [c for c in shared.clauses
-                if verify_nogood_certificate(original, c, shared.certificates[c])]
+    # Export only nogoods whose certificates verify against the original CNF
+    # under the negation of the learned clause.
+    verified = [
+        clause for clause in shared.clauses
+        if verify_nogood_certificate(original, clause, shared.certificates[clause])
+    ]
 
     if name == "B":
         receiving_kb, deferred, adaptive = KnowledgeBase(), [], False
     elif name == "C":
         receiving_kb = KnowledgeBase()
-        for c in verified:
-            receiving_kb.add(c, shared.certificates[c])
+        for clause in verified:
+            receiving_kb.add(clause, shared.certificates[clause])
         deferred, adaptive = [], False
-    elif name == "D":
-        ranked = sorted(verified, key=lambda c: (len(c), c))
+    else:  # D
+        ranked = sorted(verified, key=lambda clause: (len(clause), clause))
         immediate_n = int(len(ranked) * ADAPTIVE_IMMEDIATE_FRACTION)
         immediate, deferred = ranked[:immediate_n], ranked[immediate_n:]
         receiving_kb = KnowledgeBase()
-        for c in immediate:
-            receiving_kb.add(c, shared.certificates[c])
+        for clause in immediate:
+            receiving_kb.add(clause, shared.certificates[clause])
         adaptive = True
-    else:
-        raise ValueError(f"Unknown configuration: {name}")
 
-    second, s2, m2, p2, _ = _run_engine(
+    # Stage 2 is unconditional: JW runs even if stage 1 already solved the CNF.
+    second, s2, m2, p2, second_elapsed = _run_engine(
         original, n_vars, "jw", engine_budget, knowledge=receiving_kb,
         deferred=deferred, adaptive=adaptive)
+    second_ok = False
+    verifier_nodes = 0
+    if s2 == "SAT":
+        second_ok = m2 is not None and verify_sat(original, m2)
+    elif s2 == "UNSAT":
+        # The stage-2 proof may depend on imported clauses; verify independently.
+        verifier, verifier_status, _, verifier_proof, _ = _run_engine(
+            original, n_vars, "frequency", certificate_budget)
+        verifier_nodes = verifier.stats.nodes
+        second_ok = (
+            verifier_status == "UNSAT"
+            and verify_unsat_tree(original, verifier_proof)
+        )
+
     stats = _merge_stats(first.stats, second.stats)
     stats["learned_generated"] = first.stats.learned_generated + second.stats.learned_generated
     stats["learned_received"] = second.stats.learned_received
     stats["learned_certificates_verified"] = len(verified)
 
-    verifier_nodes = 0
-    if s2 == "SAT":
-        ok = m2 is not None and verify_sat(original, m2)
-        final = "SAT" if ok else "UNKNOWN"
-    elif s2 == "UNSAT":
-        # Independent proof run on original CNF; its work is reported separately.
-        verifier, vs, _, vp, _ = _run_engine(
-            original, n_vars, "frequency", certificate_budget)
-        verifier_nodes = verifier.stats.nodes
-        ok = vs == "UNSAT" and verify_unsat_tree(original, vp)
-        final = "UNSAT" if ok else "UNKNOWN"
+    disagreement = first_ok and second_ok and s1 != s2
+    if disagreement:
+        final, certified, chosen_model = "UNKNOWN", False, None
+        outcome_note = "ERROR: independently certified engines disagree"
+    elif first_ok:
+        final, certified = s1, True
+        chosen_model = m1 if s1 == "SAT" else None
+        outcome_note = "overall result certified by first engine"
+    elif second_ok:
+        final, certified = s2, True
+        chosen_model = m2 if s2 == "SAT" else None
+        outcome_note = "overall result certified by second engine"
     else:
-        final, ok = "UNKNOWN", False
+        final, certified, chosen_model = "UNKNOWN", False, None
+        outcome_note = "neither engine produced a verified result"
 
-    return _result(name, final, ok, m2 if final == "SAT" else None, stats,
-                   time.perf_counter() - config_started, verifier_nodes, len(verified),
-                   f"two-stage frequency -> jw; exchange={name}")
+    result = _result(
+        name, final, certified, chosen_model, stats,
+        time.perf_counter() - config_started, verifier_nodes, len(verified),
+        f"frequency -> jw; exchange={name}; first={s1}; second={s2}; {outcome_note}",
+    )
+    result.update({
+        "first_engine_status": s1,
+        "first_engine_certified": first_ok,
+        "first_engine_nodes": first.stats.nodes,
+        "first_engine_elapsed_seconds": round(first_elapsed, 6),
+        "second_engine_ran": True,
+        "second_engine_status": s2,
+        "second_engine_certified": second_ok,
+        "second_engine_nodes": second.stats.nodes,
+        "second_engine_elapsed_seconds": round(second_elapsed, 6),
+        "engine_disagreement": disagreement,
+    })
+    return result
 
 
 
@@ -210,9 +267,9 @@ def _write_manifest(path: Path, manifest: dict) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Run ARE-BENCH-001 with durable per-configuration checkpoints."
+        description="Run ARE-BENCH-002 with both engines always executed and durable checkpoints."
     )
-    parser.add_argument("--output", type=Path, default=Path("results/ARE-BENCH-001.csv"))
+    parser.add_argument("--output", type=Path, default=Path("results/ARE-BENCH-002.csv"))
     parser.add_argument("--limit-per-size", type=int, default=INSTANCES_PER_SIZE,
                         help="30 for the full protocol; smaller values are pilots.")
     parser.add_argument("--configs", default="A,B,C,D")
@@ -246,7 +303,10 @@ def main() -> None:
               "status", "certified", "decision_nodes", "propagations", "conflicts",
               "learned_generated", "learned_received", "learned_relevant",
               "learned_certificates_verified", "deferred_activated", "max_active_clauses",
-              "elapsed_seconds", "certificate_verifier_nodes", "note"]
+              "elapsed_seconds", "certificate_verifier_nodes", "first_engine_status", "first_engine_certified",
+              "first_engine_nodes", "first_engine_elapsed_seconds", "second_engine_ran",
+              "second_engine_status", "second_engine_certified", "second_engine_nodes",
+              "second_engine_elapsed_seconds", "engine_disagreement", "note"]
     sizes = list(args.sizes)
     expected = [
         (n, i, config)
@@ -260,8 +320,9 @@ def main() -> None:
     detected_dirty = git_info["git_dirty_detected"]
     effective_dirty = bool(args.git_dirty or detected_dirty is True)
     run_settings = {
-        "protocol": "ARE-BENCH-001",
+        "protocol": "ARE-BENCH-002",
         "protocol_version": "1.0",
+        "second_engine_policy": "always-start-after-stage-1-terminates-or-exhausts-budget",
         "git_commit": args.git_commit,
         "git_dirty": effective_dirty,
         **git_info,
