@@ -51,7 +51,7 @@ python -m are.benchmark --git-commit <COMMIT_SHA> --output results/ARE-BENCH-001
 The runner now writes a durable JSONL checkpoint after every configuration, then atomically refreshes the CSV and manifest. If interrupted, resume with the identical arguments plus `--resume`:
 
 ```bash
-python -m are.benchmark --git-commit <COMMIT_SHA> --output results/ARE-BENCH-001.csv --resume
+python -m are.benchmark --git-commit <COMMIT_SHA> --output results/ARE-BENCH-002.csv --resume
 ```
 
 Resume rejects changed seeds/formula identities, budgets, configurations, sizes, protocol, or source revision. Keep the CSV, manifest, and `.checkpoint.jsonl` together; the JSONL checkpoint is the durable source of truth. The manifest records the exact command, source commit/dirty flag, environment, timestamps, expected/completed rows, and whether the run is eligible to be called confirmatory. A complete run from a dirty tree or non-frozen settings is still labelled non-confirmatory.
