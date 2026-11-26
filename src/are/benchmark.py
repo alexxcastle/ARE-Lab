@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 import platform
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -123,6 +124,20 @@ def run_configuration(name: str, original, n_vars: int, total_budget: int = TOTA
 
 
 
+
+def _git_metadata() -> dict:
+    try:
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+        ).stdout.strip()
+        dirty = bool(subprocess.run(
+            ["git", "status", "--porcelain"], capture_output=True, text=True, check=True
+        ).stdout.strip())
+        return {"git_head_detected": head, "git_dirty_detected": dirty}
+    except (OSError, subprocess.CalledProcessError):
+        return {"git_head_detected": None, "git_dirty_detected": None}
+
+
 def _utc_now() -> str:
     from datetime import datetime, timezone
     return datetime.now(timezone.utc).isoformat()
@@ -220,11 +235,17 @@ def main() -> None:
         (n, i, config)
         for n in sizes for i in range(args.limit_per_size) for config in configs
     ]
+    git_info = _git_metadata()
+    if git_info["git_head_detected"] is not None and git_info["git_head_detected"] != args.git_commit:
+        parser.error("--git-commit does not match the current Git HEAD")
+    detected_dirty = git_info["git_dirty_detected"]
+    effective_dirty = bool(args.git_dirty or detected_dirty is True)
     run_settings = {
         "protocol": "ARE-BENCH-001",
         "protocol_version": "1.0",
         "git_commit": args.git_commit,
-        "git_dirty": bool(args.git_dirty),
+        "git_dirty": effective_dirty,
+        **git_info,
         "configs": configs,
         "sizes": sizes,
         "instances_per_size": args.limit_per_size,
@@ -239,7 +260,11 @@ def main() -> None:
         and configs == ["A", "B", "C", "D"]
         and args.node_budget == TOTAL_BUDGET
     )
-    confirmatory_eligible = full_shape and not args.git_dirty
+    confirmatory_eligible = (
+        full_shape and not effective_dirty
+        and git_info["git_head_detected"] == args.git_commit
+        and git_info["git_dirty_detected"] is False
+    )
     if args.resume:
         if not checkpoint_path.exists() or not manifest_path.exists():
             parser.error("--resume requires an existing checkpoint and manifest")
