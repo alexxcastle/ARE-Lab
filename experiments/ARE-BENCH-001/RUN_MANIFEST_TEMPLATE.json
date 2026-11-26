@@ -1,0 +1,15 @@
+{
+  "protocol": "ARE-BENCH-001",
+  "protocol_version": "1.0",
+  "git_commit": "FILL_IN_COMMIT_SHA",
+  "working_tree_clean": true,
+  "python_version": "FILL_IN",
+  "platform": "FILL_IN",
+  "command": "FILL_IN",
+  "timestamp_utc": "FILL_IN",
+  "total_decision_node_budget_per_instance": 100000,
+  "configurations": ["A", "B", "C", "D"],
+  "instance_seed_schedule": "experiments/ARE-BENCH-001/seeds.csv",
+  "raw_results_file": "results.csv",
+  "notes": ""
+}
