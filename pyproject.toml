@@ -12,6 +12,10 @@ dependencies = []
 [project.optional-dependencies]
 test = ["pytest>=8"]
 
+[project.scripts]
+are-instance = "are.cli:main"
+are-benchmark = "are.benchmark:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
