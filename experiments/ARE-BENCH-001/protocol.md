@@ -1,6 +1,6 @@
 # ARE-BENCH-001 — Frozen benchmark protocol
 
-Status: **protocol specified; execution pending**  
+Status: **protocol frozen; exploratory pilot P-001 executed; confirmatory run pending**  
 Protocol version: 1.0  
 Problem family: random 3-SAT  
 Primary question: does logically sound clause exchange between complementary DPLL search engines reduce total search work under a fixed aggregate node budget?
