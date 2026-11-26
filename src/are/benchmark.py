@@ -252,7 +252,9 @@ def main() -> None:
         (n, i, config)
         for n in sizes for i in range(args.limit_per_size) for config in configs
     ]
-    git_info = _git_metadata([args.output, manifest_path, checkpoint_path, log_path])
+    output_artifacts = [args.output, manifest_path, checkpoint_path, log_path]
+    output_artifacts.extend(path.with_name(path.name + ".tmp") for path in list(output_artifacts))
+    git_info = _git_metadata(output_artifacts)
     if git_info["git_head_detected"] is not None and git_info["git_head_detected"] != args.git_commit:
         parser.error("--git-commit does not match the current Git HEAD")
     detected_dirty = git_info["git_dirty_detected"]
