@@ -65,11 +65,19 @@ Retain this run unchanged as P-002. After checking out the exact current source 
 
 ## Archived artifact encoding
 
-The four machine-readable run artifacts (CSV, manifest, progress log, and JSONL checkpoint) are stored alongside this report as gzip-compressed Base64 text files. This keeps the repository artifacts text-only while preserving the exact uploaded bytes. Restore any artifact on macOS/Linux with:
+The four machine-readable run artifacts (CSV, manifest, progress log, and JSONL checkpoint) are stored alongside this report as gzip-compressed Base64 text files. This keeps the repository artifacts text-only while preserving the exact uploaded bytes. Restore the original files with Python (cross-platform):
 
-```sh
-base64 -d P-002.csv.gz.b64 | gzip -dc > P-002.csv
-base64 -d P-002.manifest.json.gz.b64 | gzip -dc > P-002.manifest.json
-base64 -d P-002.log.gz.b64 | gzip -dc > P-002.log
-base64 -d P-002.checkpoint.jsonl.gz.b64 | gzip -dc > P-002.checkpoint.jsonl
+```python
+import base64, gzip
+from pathlib import Path
+for name in ["P-002.csv", "P-002.manifest.json", "P-002.log", "P-002.checkpoint.jsonl"]:
+    encoded = Path(name + ".gz.b64").read_bytes()
+    Path(name).write_bytes(gzip.decompress(base64.b64decode(encoded)))
 ```
+
+SHA-256 of the restored original files:
+
+- CSV: `f2d8ed2608d5550b2c7558ef0bce4827f340c50b90571936ac588dfeff51078f`
+- Manifest: `5d5ee02802a57aa20f2327560bc464771858584044574b2f16131759d7df73ad`
+- Log: `644216fd98c2c2ac53bc839a70033ccf62cbe7285bbbe780041552b3edd5605b`
+- Checkpoint: `65311fa5208556f7ba9367fc3d84cc6d3762daa6aa0df8c7bb9c6b26ebd7aba7`
