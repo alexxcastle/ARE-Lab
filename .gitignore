@@ -7,3 +7,10 @@ build/
 *.egg-info/
 results/raw/
 results/tmp/
+
+# Generated benchmark outputs (CSV, manifest, checkpoint, and progress log)
+results/*.csv
+results/*.manifest.json
+results/*.checkpoint.jsonl
+results/*.log
+results/*.tmp
