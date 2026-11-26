@@ -122,66 +122,216 @@ def run_configuration(name: str, original, n_vars: int, total_budget: int = TOTA
                    f"two-stage frequency -> jw; exchange={name}")
 
 
+
+def _utc_now() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    temporary = path.with_name(path.name + ".tmp")
+    with temporary.open("w", encoding="utf-8", newline="") as stream:
+        stream.write(content)
+        stream.flush()
+        import os
+        os.fsync(stream.fileno())
+    temporary.replace(path)
+
+
+def _write_csv_atomic(path: Path, fields: list[str], rows: list[dict]) -> None:
+    temporary = path.with_name(path.name + ".tmp")
+    with temporary.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+        stream.flush()
+        import os
+        os.fsync(stream.fileno())
+    temporary.replace(path)
+
+
+def _load_checkpoint(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    rows = []
+    with path.open("r", encoding="utf-8") as stream:
+        for line_number, line in enumerate(stream, start=1):
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"Checkpoint JSONL corrupt at line {line_number}; preserve the file "
+                    "and inspect it before resuming."
+                ) from exc
+            if not isinstance(row, dict):
+                raise ValueError(f"Checkpoint line {line_number} is not a JSON object")
+            rows.append(row)
+    return rows
+
+
+def _write_manifest(path: Path, manifest: dict) -> None:
+    manifest["updated_at_utc"] = _utc_now()
+    _atomic_write_text(path, json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Run ARE-BENCH-001 with durable per-configuration checkpoints."
+    )
     parser.add_argument("--output", type=Path, default=Path("results/ARE-BENCH-001.csv"))
     parser.add_argument("--limit-per-size", type=int, default=INSTANCES_PER_SIZE,
-                        help="30 for confirmatory run; smaller values are pilots.")
+                        help="30 for the full protocol; smaller values are pilots.")
     parser.add_argument("--configs", default="A,B,C,D")
-    parser.add_argument("--git-commit", default="UNRECORDED")
+    parser.add_argument("--git-commit", required=True,
+                        help="Exact source commit SHA used for this run.")
+    parser.add_argument("--git-dirty", action="store_true",
+                        help="Mark the source tree as modified; run will not be confirmatory.")
     parser.add_argument("--sizes", type=int, nargs="+", choices=INSTANCE_COUNTS,
                         default=list(INSTANCE_COUNTS))
-    parser.add_argument("--node-budget", type=int, default=TOTAL_BUDGET,
-                        help="100000 for frozen protocol; other values are pilots.")
+    parser.add_argument("--node-budget", type=int, default=TOTAL_BUDGET)
+    parser.add_argument("--resume", action="store_true",
+                        help="Resume from the matching .checkpoint.jsonl file.")
     args = parser.parse_args()
     if args.node_budget < 2:
         parser.error("--node-budget must be at least 2")
     if not 1 <= args.limit_per_size <= INSTANCES_PER_SIZE:
         parser.error("--limit-per-size must be between 1 and 30")
     configs = [x.strip() for x in args.configs.split(",") if x.strip()]
-    if not configs or any(x not in {"A", "B", "C", "D"} for x in configs):
-        parser.error("--configs must contain only A,B,C,D")
+    if not configs or len(set(configs)) != len(configs) or any(
+        x not in {"A", "B", "C", "D"} for x in configs
+    ):
+        parser.error("--configs must contain unique values from A,B,C,D")
+    if not args.git_commit or args.git_commit == "UNRECORDED":
+        parser.error("--git-commit must be the exact source commit SHA")
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path = args.output.with_suffix(".manifest.json")
+    checkpoint_path = args.output.with_suffix(".checkpoint.jsonl")
     fields = ["n_vars", "instance_index", "seed", "formula_sha256", "configuration",
               "status", "certified", "decision_nodes", "propagations", "conflicts",
               "learned_generated", "learned_received", "learned_relevant",
               "learned_certificates_verified", "deferred_activated", "max_active_clauses",
               "elapsed_seconds", "certificate_verifier_nodes", "note"]
-    rows, started = [], time.perf_counter()
-    for n in args.sizes:
-        for i in range(args.limit_per_size):
-            seed, cnf = generate_benchmark_instance(n, i)
-            digest = formula_sha256(n, cnf)
-            for config in configs:
-                result = run_configuration(config, cnf, n, total_budget=args.node_budget)
-                rows.append({"n_vars": n, "instance_index": i, "seed": seed,
-                             "formula_sha256": digest, **result})
-                print(f"n={n} i={i:02d} {config}: {result['status']} "
-                      f"nodes={result['decision_nodes']}", flush=True)
-
-    with args.output.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fields)
-        writer.writeheader()
-        writer.writerows(rows)
-    manifest = {
-        "protocol": "ARE-BENCH-001", "protocol_version": "1.0",
-        "git_commit": args.git_commit, "python_version": sys.version,
-        "platform": platform.platform(), "configs": configs,
-        "instances_per_size": args.limit_per_size, "sizes": args.sizes,
-        "total_instances": len(args.sizes) * args.limit_per_size,
+    sizes = list(args.sizes)
+    expected = [
+        (n, i, config)
+        for n in sizes for i in range(args.limit_per_size) for config in configs
+    ]
+    run_settings = {
+        "protocol": "ARE-BENCH-001",
+        "protocol_version": "1.0",
+        "git_commit": args.git_commit,
+        "git_dirty": bool(args.git_dirty),
+        "configs": configs,
+        "sizes": sizes,
+        "instances_per_size": args.limit_per_size,
         "total_budget_per_instance": args.node_budget,
         "engine_budget": args.node_budget // 2,
         "certificate_budget_separate": max(CERTIFICATE_BUDGET, args.node_budget * 20),
         "adaptive_immediate_fraction": ADAPTIVE_IMMEDIATE_FRACTION,
-        "output_csv": str(args.output), "elapsed_seconds": round(time.perf_counter() - started, 3),
-        "status": "pilot" if (args.limit_per_size < INSTANCES_PER_SIZE or
-                  args.node_budget != TOTAL_BUDGET or args.sizes != list(INSTANCE_COUNTS))
-                  else "full-protocol-run",
     }
-    manifest_path = args.output.with_suffix(".manifest.json")
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    print(f"Wrote {args.output} and {manifest_path}")
+    full_shape = (
+        sizes == list(INSTANCE_COUNTS)
+        and args.limit_per_size == INSTANCES_PER_SIZE
+        and configs == ["A", "B", "C", "D"]
+        and args.node_budget == TOTAL_BUDGET
+    )
+    confirmatory_eligible = full_shape and not args.git_dirty
+    if args.resume:
+        if not checkpoint_path.exists() or not manifest_path.exists():
+            parser.error("--resume requires an existing checkpoint and manifest")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for key, value in run_settings.items():
+            if manifest.get(key) != value:
+                parser.error(f"Cannot resume: setting {key!r} differs from saved run")
+        rows = _load_checkpoint(checkpoint_path)
+        if len(rows) > len(expected):
+            parser.error("Checkpoint contains more rows than this run expects")
+        seen = set()
+        for row in rows:
+            key = (int(row["n_vars"]), int(row["instance_index"]), row["configuration"])
+            if key in seen or key not in expected:
+                parser.error(f"Checkpoint contains duplicate or unexpected result key: {key}")
+            n, i = key[0], key[1]
+            seed, formula = generate_benchmark_instance(n, i)
+            if row.get("seed") != seed or row.get("formula_sha256") != formula_sha256(n, formula):
+                parser.error(f"Checkpoint instance identity mismatch for {key}")
+            if row.get("status") not in {"SAT", "UNSAT", "UNKNOWN"}:
+                parser.error(f"Checkpoint has invalid status for {key}")
+            if bool(row.get("certified")) != (row.get("status") in {"SAT", "UNSAT"}):
+                parser.error(f"Checkpoint certification/status mismatch for {key}")
+            seen.add(key)
+        completed = seen
+        manifest["resumed_at_utc"] = _utc_now()
+        manifest["resume_count"] = int(manifest.get("resume_count", 0)) + 1
+    else:
+        if checkpoint_path.exists() or manifest_path.exists() or args.output.exists():
+            parser.error("Output, manifest, or checkpoint already exists; use --resume or a new --output")
+        rows = []
+        completed = set()
+        manifest = {
+            **run_settings,
+            "status": "running",
+            "classification": "confirmatory-candidate" if confirmatory_eligible else "pilot/non-confirmatory",
+            "confirmatory_eligible": confirmatory_eligible,
+            "started_at_utc": _utc_now(),
+            "command": [sys.executable, "-m", "are.benchmark", *sys.argv[1:]],
+            "python_version": sys.version,
+            "platform": platform.platform(),
+            "expected_result_rows": len(expected),
+            "completed_result_rows": 0,
+            "total_instances": len(sizes) * args.limit_per_size,
+            "checkpoint_file": str(checkpoint_path),
+            "output_csv": str(args.output),
+            "resume_count": 0,
+        }
+        _write_manifest(manifest_path, manifest)
+        _write_csv_atomic(args.output, fields, rows)
+
+    # Rebuild the human-readable CSV from the durable JSONL checkpoint on resume.
+    _write_csv_atomic(args.output, fields, rows)
+    _write_manifest(manifest_path, manifest)
+    started = time.perf_counter()
+    for n, i, config in expected:
+        if (n, i, config) in completed:
+            continue
+        seed, cnf = generate_benchmark_instance(n, i)
+        digest = formula_sha256(n, cnf)
+        result = run_configuration(config, cnf, n, total_budget=args.node_budget)
+        row = {"n_vars": n, "instance_index": i, "seed": seed,
+               "formula_sha256": digest, **result}
+        # JSONL is the durable source of truth. Flush it before updating CSV/manifest.
+        with checkpoint_path.open("a", encoding="utf-8", newline="") as stream:
+            stream.write(json.dumps(row, sort_keys=True) + "\n")
+            stream.flush()
+            import os
+            os.fsync(stream.fileno())
+        rows.append(row)
+        completed.add((n, i, config))
+        _write_csv_atomic(args.output, fields, rows)
+        manifest["completed_result_rows"] = len(rows)
+        manifest["last_completed"] = {
+            "n_vars": n, "instance_index": i, "configuration": config,
+            "status": result["status"],
+        }
+        manifest["elapsed_seconds_this_session"] = round(time.perf_counter() - started, 3)
+        _write_manifest(manifest_path, manifest)
+        print(f"n={n} i={i:02d} {config}: {result['status']} "
+              f"nodes={result['decision_nodes']} ({len(rows)}/{len(expected)})", flush=True)
+
+    manifest["status"] = "complete"
+    manifest["finished_at_utc"] = _utc_now()
+    manifest["completed_result_rows"] = len(rows)
+    manifest["elapsed_seconds_this_session"] = round(time.perf_counter() - started, 3)
+    manifest["classification"] = (
+        "confirmatory-run-complete" if confirmatory_eligible else "pilot/non-confirmatory"
+    )
+    _write_csv_atomic(args.output, fields, rows)
+    _write_manifest(manifest_path, manifest)
+    print(f"Completed {len(rows)} result rows. Wrote {args.output}, "
+          f"{manifest_path}, and {checkpoint_path}")
 
 
 if __name__ == "__main__":
