@@ -168,6 +168,16 @@ def _write_csv_atomic(path: Path, fields: list[str], rows: list[dict]) -> None:
 def _load_checkpoint(path: Path) -> list[dict]:
     if not path.exists():
         return []
+    # A process/power failure may leave only the final append incomplete.
+    # Discard that unterminated tail; complete JSONL records remain authoritative.
+    raw = path.read_bytes()
+    if raw and not raw.endswith(b"\n"):
+        last_newline = raw.rfind(b"\n")
+        with path.open("r+b") as stream:
+            stream.truncate(last_newline + 1 if last_newline >= 0 else 0)
+            stream.flush()
+            import os
+            os.fsync(stream.fileno())
     rows = []
     with path.open("r", encoding="utf-8") as stream:
         for line_number, line in enumerate(stream, start=1):
