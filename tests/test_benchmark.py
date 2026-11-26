@@ -6,6 +6,12 @@ def test_all_configurations_return_certified_status_on_easy_sat():
     for config in "ABCD":
         result = run_configuration(config, cnf, 2, total_budget=100)
         assert result["status"] == "SAT" and result["certified"] is True
+        if config in "BCD":
+            assert result["second_engine_ran"] is True
+            assert result["first_engine_status"] == "SAT"
+            assert result["second_engine_status"] == "SAT"
+            assert result["first_engine_nodes"] > 0
+            assert result["second_engine_nodes"] > 0
 
 
 def test_all_configurations_certify_easy_unsat():
@@ -13,6 +19,12 @@ def test_all_configurations_certify_easy_unsat():
     for config in "ABCD":
         result = run_configuration(config, cnf, 2, total_budget=100)
         assert result["status"] == "UNSAT" and result["certified"] is True
+        if config in "BCD":
+            assert result["second_engine_ran"] is True
+            assert result["first_engine_status"] == "UNSAT"
+            assert result["second_engine_status"] == "UNSAT"
+            assert result["first_engine_nodes"] > 0
+            assert result["second_engine_nodes"] > 0
 
 
 
