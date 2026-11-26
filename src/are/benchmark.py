@@ -209,6 +209,7 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     manifest_path = args.output.with_suffix(".manifest.json")
     checkpoint_path = args.output.with_suffix(".checkpoint.jsonl")
+    log_path = args.output.with_suffix(".log")
     fields = ["n_vars", "instance_index", "seed", "formula_sha256", "configuration",
               "status", "certified", "decision_nodes", "propagations", "conflicts",
               "learned_generated", "learned_received", "learned_relevant",
@@ -266,6 +267,10 @@ def main() -> None:
         completed = seen
         manifest["resumed_at_utc"] = _utc_now()
         manifest["resume_count"] = int(manifest.get("resume_count", 0)) + 1
+        manifest.setdefault("command_history", []).append({
+            "at_utc": _utc_now(),
+            "command": [sys.executable, "-m", "are.benchmark", *sys.argv[1:]],
+        })
     else:
         if checkpoint_path.exists() or manifest_path.exists() or args.output.exists():
             parser.error("Output, manifest, or checkpoint already exists; use --resume or a new --output")
@@ -278,6 +283,10 @@ def main() -> None:
             "confirmatory_eligible": confirmatory_eligible,
             "started_at_utc": _utc_now(),
             "command": [sys.executable, "-m", "are.benchmark", *sys.argv[1:]],
+            "command_history": [{
+                "at_utc": _utc_now(),
+                "command": [sys.executable, "-m", "are.benchmark", *sys.argv[1:]],
+            }],
             "python_version": sys.version,
             "platform": platform.platform(),
             "expected_result_rows": len(expected),
@@ -285,6 +294,7 @@ def main() -> None:
             "total_instances": len(sizes) * args.limit_per_size,
             "checkpoint_file": str(checkpoint_path),
             "output_csv": str(args.output),
+            "log_file": str(log_path),
             "resume_count": 0,
         }
         _write_manifest(manifest_path, manifest)
@@ -318,8 +328,16 @@ def main() -> None:
         }
         manifest["elapsed_seconds_this_session"] = round(time.perf_counter() - started, 3)
         _write_manifest(manifest_path, manifest)
-        print(f"n={n} i={i:02d} {config}: {result['status']} "
-              f"nodes={result['decision_nodes']} ({len(rows)}/{len(expected)})", flush=True)
+        log_line = (
+            f"{_utc_now()} n={n} i={i:02d} {config}: {result['status']} "
+            f"nodes={result['decision_nodes']} ({len(rows)}/{len(expected)})\n"
+        )
+        with log_path.open("a", encoding="utf-8") as log_stream:
+            log_stream.write(log_line)
+            log_stream.flush()
+            import os
+            os.fsync(log_stream.fileno())
+        print(log_line.rstrip(), flush=True)
 
     manifest["status"] = "complete"
     manifest["finished_at_utc"] = _utc_now()
