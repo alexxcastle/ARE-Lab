@@ -1,6 +1,6 @@
 # ARE-BENCH-002 Pilot P-002 — 15-instance exploratory extension
 
-Status: **protocol frozen; execution pending**  
+Status: **protocol frozen; execution completed; results archived in P-002-report.md**  
 Protocol: ARE-BENCH-002 v1.0  
 Classification: **pilot / non-confirmatory**
 
