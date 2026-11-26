@@ -59,3 +59,14 @@ def test_runner_checkpoints_and_resumes_without_duplicate_rows(tmp_path, monkeyp
     assert checkpoint.read_text(encoding="utf-8") == first_checkpoint
     with output.open(newline="", encoding="utf-8") as stream:
         assert len(list(csv.DictReader(stream))) == 1
+
+
+
+def test_checkpoint_discards_only_an_unterminated_final_record(tmp_path):
+    from are.benchmark import _load_checkpoint
+
+    checkpoint = tmp_path / "run.checkpoint.jsonl"
+    checkpoint.write_bytes(b'{"configuration":"A","status":"UNKNOWN","certified":false}\n{"partial":')
+    rows = _load_checkpoint(checkpoint)
+    assert rows == [{"configuration": "A", "status": "UNKNOWN", "certified": False}]
+    assert checkpoint.read_bytes().endswith(b"\n")
