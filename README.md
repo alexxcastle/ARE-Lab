@@ -14,9 +14,9 @@ Research repository for the **Adaptive / Bidirectional Resolution Engine (ARE)**
 
 ## Current benchmark
 
-See [ARE-BENCH-001](experiments/ARE-BENCH-001/protocol.md).
+See [ARE-BENCH-002](experiments/ARE-BENCH-002/protocol.md). ARE-BENCH-001 is retained as the historical baseline. ARE-BENCH-002 uses the same 90 formula instances and seed schedule, but always starts the Jeroslow-Wang second engine for B/C/D, even when the frequency engine has already solved the formula.
 
-The fixed benchmark is Random 3-SAT at density alpha = 4.267, with 50, 100, and 150 variables, 30 instances per size (90 total). The instance generator and deterministic seed schedule are specified in the protocol. The benchmark is a controlled initial test, not a comprehensive evaluation of SAT solvers.
+The benchmark is Random 3-SAT at density alpha = 4.267, with 50, 100, and 150 variables, 30 instances per size. The generator and deterministic seed schedule are specified in the protocol. This is a controlled initial test, not a comprehensive evaluation of SAT solvers.
 
 ## Repository map
 
@@ -45,7 +45,7 @@ python -m are.benchmark --sizes 50 --limit-per-size 1 --node-budget 2000 --outpu
 Run the frozen benchmark only with the default 100,000-node budget, all three sizes, and 30 instances per size. Supply the exact source commit. The runner verifies it against the current Git HEAD and automatically detects tracked/untracked working-tree changes (the explicit --git-dirty flag is an additional conservative override):
 
 ```bash
-python -m are.benchmark --git-commit <COMMIT_SHA> --output results/ARE-BENCH-001.csv
+python -m are.benchmark --git-commit <COMMIT_SHA> --output results/ARE-BENCH-002.csv
 ```
 
 The runner now writes a durable JSONL checkpoint after every configuration, then atomically refreshes the CSV and manifest. If interrupted, resume with the identical arguments plus `--resume`:
@@ -56,7 +56,7 @@ python -m are.benchmark --git-commit <COMMIT_SHA> --output results/ARE-BENCH-002
 
 Resume rejects changed seeds/formula identities, budgets, configurations, sizes, protocol, or source revision. Keep the CSV, manifest, and `.checkpoint.jsonl` together; the JSONL checkpoint is the durable source of truth. The manifest records the exact command, source commit/dirty flag, environment, timestamps, expected/completed rows, and whether the run is eligible to be called confirmatory. A complete run from a dirty tree or non-frozen settings is still labelled non-confirmatory.
 
-The runner records per-instance CSV data and a JSON manifest. The first implementation is sequential two-stage DPLL; see `docs/methodology/implementation-v0.1.md`. It is not yet a full CDCL solver or a concurrent bidirectional implementation.
+The runner records per-instance CSV data, both engines' individual outcomes, and clause-transfer counts. ARE-BENCH-002 is sequential two-stage DPLL; see docs/methodology/implementation-v0.2.md. For B/C/D the second engine always starts, but stops normally when it solves the formula or exhausts its own budget. The implementation is not yet a full CDCL solver or a concurrent bidirectional implementation.
 
 ## Evidence status
 
