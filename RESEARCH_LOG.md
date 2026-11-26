@@ -85,3 +85,15 @@ No result so far establishes a general SAT speedup, a polynomial-time algorithm,
 - The new tests have been added to the repository but have **not yet been executed in this environment**. No confirmatory benchmark has been run.
 
 - Follow-up hardening: the runner verifies the supplied commit against Git HEAD, detects dirty source trees automatically (excluding its own output artifacts), records each resume invocation, and safely discards only an unterminated final JSONL append after interruption.
+
+
+## 2026-11-26 — ARE-BENCH-002: mandatory second-engine execution
+
+- Introduced ARE-BENCH-002 as a separately versioned execution protocol. ARE-BENCH-001 remains the historical baseline and is not rewritten.
+- Kept the exact 90-formula Random 3-SAT generator, density, variable sizes, and deterministic seed schedule.
+- Changed B/C/D so the Jeroslow-Wang stage always starts after the frequency stage terminates, including when stage 1 has already returned SAT or UNSAT. Each engine still stops normally on a terminal result or its own 50,000-node limit; unused stage-1 nodes are not transferred.
+- Kept B as no exchange, C as full verified-clause exchange, and D as 25% immediate plus deferred activation.
+- Added separate per-engine status, certification, node, and elapsed-time fields. Added explicit immediate/deferred receipt metrics and a disagreement flag.
+- The configuration-level outcome is certified if either engine supplies a valid result, unless both independently certify contradictory outcomes; that case is recorded as UNKNOWN and flagged.
+- Added regression assertions for second-engine execution on easy SAT and UNSAT cases, plus stricter checkpoint validation.
+- Added the ARE-BENCH-002 protocol and implementation notes. Local tests and the new 90-formula run remain pending; no ARE-BENCH-002 performance result is claimed.
