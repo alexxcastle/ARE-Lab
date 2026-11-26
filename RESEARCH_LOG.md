@@ -19,7 +19,7 @@ Numerical benchmark claims previously discussed in conversation (including claim
 - Added certified decision-prefix nogoods: a nogood is retained only after its complete subtree is proved UNSAT; exported clauses are checked against the original formula under the negation of the clause.
 - Implemented configurations A/B/C/D and a CSV/JSON-manifest benchmark runner.
 - Added tests comparing 100 random small 3-SAT formulas against exhaustive truth-table evaluation.
-- Local test result: **9 passed**.
+- Local test result: **14 passed** (including 100 random small formulas checked against exhaustive truth tables).
 - Implementation limitation: the current two-engine schedule is sequential and one-way (frequency first, Jeroslow-Wang second), not concurrent or fully bidirectional. The backward variable-elimination reconstruction component is not yet implemented.
 
 ## 2026-11-26 — Exploratory pilot P-001
