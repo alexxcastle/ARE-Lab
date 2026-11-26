@@ -42,11 +42,19 @@ Run a small **pilot** (not the confirmatory benchmark):
 python -m are.benchmark --sizes 50 --limit-per-size 1 --node-budget 2000 --output results/pilot.csv
 ```
 
-Run the frozen benchmark only with the default 100,000-node budget, all three sizes, and 30 instances per size:
+Run the frozen benchmark only with the default 100,000-node budget, all three sizes, and 30 instances per size. Supply the exact source commit and mark a dirty working tree explicitly:
 
 ```bash
 python -m are.benchmark --git-commit <COMMIT_SHA> --output results/ARE-BENCH-001.csv
 ```
+
+The runner now writes a durable JSONL checkpoint after every configuration, then atomically refreshes the CSV and manifest. If interrupted, resume with the identical arguments plus `--resume`:
+
+```bash
+python -m are.benchmark --git-commit <COMMIT_SHA> --output results/ARE-BENCH-001.csv --resume
+```
+
+Resume rejects changed seeds/formula identities, budgets, configurations, sizes, protocol, or source revision. Keep the CSV, manifest, and `.checkpoint.jsonl` together; the JSONL checkpoint is the durable source of truth. The manifest records the exact command, source commit/dirty flag, environment, timestamps, expected/completed rows, and whether the run is eligible to be called confirmatory. A complete run from a dirty tree or non-frozen settings is still labelled non-confirmatory.
 
 The runner records per-instance CSV data and a JSON manifest. The first implementation is sequential two-stage DPLL; see `docs/methodology/implementation-v0.1.md`. It is not yet a full CDCL solver or a concurrent bidirectional implementation.
 
